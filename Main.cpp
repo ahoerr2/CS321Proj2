@@ -8,6 +8,7 @@
 // include c++ header files
 #include <string>
 #include <iostream>
+#include <fstream>
 #define N 3 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
 #define M 3 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 
@@ -36,10 +37,15 @@ int main()
     return (1);
 }
 
+// These create files for three different types of queues, a high priority server queue, a power user queue
+// And a normal user queue
 void setJobQueues()
 {
     cout << "Main: Set up the job priority queue: \n";
-    /* ... */
+
+    ofstream queueServer("queueServerFile");
+    ofstream queuePUser("queuePUserFile");
+    ofstream queueRUser("queueRUserFile");
 }
 
 void jobGenerator()
@@ -53,8 +59,22 @@ void jobGenerator()
         // generate a random number between 1-100
         n = rand() % 100 + 1;
         cout << "jobGenerator: Job number is : " << n << endl;
-        // Put the job n into the priority queue
-        /* ... */
+
+        if (n >= 1 && n <= 30)
+        {
+            cout << "jobGenerator: job placed in server queue " << n << endl;
+            /* ... */
+        }
+        else if (n >= 31 && n <= 60)
+        {
+            cout << "jobGenerator: job placed in server queue " << n << endl;
+            /* ... */
+        }
+        else if (n >= 61 && n <= 100)
+        {
+            cout << "executeJob: execute user job " << n << endl;
+            /* ... */
+        }
 
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
