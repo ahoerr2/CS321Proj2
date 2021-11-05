@@ -14,11 +14,20 @@
 
 using namespace std;
 
+fstream queueServer;
+fstream queuePUser;
+fstream queueRUser;
+
+void jobQueueAppend(int n, string queueString, string jobToProcess);
+string genJobProcess(int n);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
 int selectJob();
 void executeJob(int n);
+const string SERVER_QUEUE = "queueServerFile";
+const string POW_USER_QUEUE = "queuePUserFile";
+const string USER_QUEUE = "queueRUserFile";
 
 int main()
 {
@@ -42,10 +51,19 @@ int main()
 void setJobQueues()
 {
     cout << "Main: Set up the job priority queue: \n";
+    queueServer.open(SERVER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
+    queuePUser.open(POW_USER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
+    queueRUser.open(USER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
+}
 
-    ofstream queueServer("queueServerFile");
-    ofstream queuePUser("queuePUserFile");
-    ofstream queueRUser("queueRUserFile");
+void jobQueueAppend(int n, string queueString, string jobToProcess)
+{
+    if (queueString == SERVER_QUEUE)
+        queueServer << n << '|' << jobToProcess << ";" << endl;
+    if (queueString == POW_USER_QUEUE)
+        queuePUser << n << '|' << jobToProcess << ";" << endl;
+    if (queueString == USER_QUEUE)
+        queueRUser << n << '|' << jobToProcess << ";" << endl;
 }
 
 void jobGenerator()
@@ -58,27 +76,33 @@ void jobGenerator()
     {
         // generate a random number between 1-100
         n = rand() % 100 + 1;
+        string jobToProcess = genJobProcess(n);
         cout << "jobGenerator: Job number is : " << n << endl;
 
         if (n >= 1 && n <= 30)
         {
             cout << "jobGenerator: job placed in server queue " << n << endl;
-            /* ... */
+            jobQueueAppend(n, SERVER_QUEUE, jobToProcess);
         }
         else if (n >= 31 && n <= 60)
         {
-            cout << "jobGenerator: job placed in server queue " << n << endl;
-            /* ... */
+            cout << "jobGenerator: job placed in power user queue " << n << endl;
+            jobQueueAppend(n, POW_USER_QUEUE, jobToProcess);
         }
         else if (n >= 61 && n <= 100)
         {
-            cout << "executeJob: execute user job " << n << endl;
-            /* ... */
+            cout << "executeJob: job placed in user queue " << n << endl;
+            jobQueueAppend(n, USER_QUEUE, jobToProcess);
         }
 
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
+}
+
+string genJobProcess()
+{
+    // TODO: Finish job process generator
 }
 
 void jobScheduler()
