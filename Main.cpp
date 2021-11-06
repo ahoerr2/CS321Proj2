@@ -11,12 +11,8 @@
 #include <fstream>
 #define N 3 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
 #define M 3 //M is the number of jobs. You may increase M to 50 when your program runs correctly
-
+#define debug 1
 using namespace std;
-
-fstream queueServer;
-fstream queuePUser;
-fstream queueRUser;
 
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 string genJobProcess(int n);
@@ -28,6 +24,10 @@ void executeJob(int n);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
+
+fstream queueServer(SERVER_QUEUE);
+fstream queuePUser(POW_USER_QUEUE);
+fstream queueRUser(USER_QUEUE);
 
 int main()
 {
@@ -51,19 +51,25 @@ int main()
 void setJobQueues()
 {
     cout << "Main: Set up the job priority queue: \n";
-    queueServer.open(SERVER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
-    queuePUser.open(POW_USER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
-    queueRUser.open(USER_QUEUE, ios::in | ios::out | ios::app | ios::trunc);
+    queueServer.open(SERVER_QUEUE, ios::in | ios::out | ios::app);
+    queuePUser.open(POW_USER_QUEUE, ios::in | ios::out | ios::app);
+    queueRUser.open(USER_QUEUE, ios::in | ios::out | ios::app);
 }
 
 void jobQueueAppend(int n, string queueString, string jobToProcess)
 {
     if (queueString == SERVER_QUEUE)
-        queueServer << n << '|' << jobToProcess << ";" << endl;
+        queueServer << n << '|' << jobToProcess << ";";
     if (queueString == POW_USER_QUEUE)
-        queuePUser << n << '|' << jobToProcess << ";" << endl;
+        queuePUser << n << '|' << jobToProcess << ";";
     if (queueString == USER_QUEUE)
-        queueRUser << n << '|' << jobToProcess << ";" << endl;
+        queueRUser << n << '|' << jobToProcess << ";";
+}
+
+string genJobProcess(int n)
+{
+    // TODO: Finish job process generator
+    return "TODO";
 }
 
 void jobGenerator()
@@ -98,11 +104,6 @@ void jobGenerator()
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
-}
-
-string genJobProcess()
-{
-    // TODO: Finish job process generator
 }
 
 void jobScheduler()

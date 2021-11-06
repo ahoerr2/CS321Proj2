@@ -5,3 +5,6 @@ a.out
 .vscode/tasks.json
 filename.txt
 .vscode/settings.json
+queuePUserFile
+queueRUserFile
+queueServerFile
