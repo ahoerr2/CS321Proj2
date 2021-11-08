@@ -10,7 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
-#include <forward_list>
+#include <list>
 #define N 3 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
 #define M 3 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
@@ -19,6 +19,7 @@ using namespace std;
 // TODO: DELETE
 void showq(queue<string> gq);
 
+queue<string> queueListGet(list<queue<string>> &queueList, int at);
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 string genJobProcess(int n);
 int retrieveJobFromStream(fstream &stream);
@@ -35,7 +36,7 @@ const string USER_QUEUE = "queueRUserFile";
 fstream queueServer;
 fstream queuePUser;
 fstream queueRUser;
-forward_list<queue<string>> queueList;
+list<queue<string>> queueList;
 
 int main()
 {
@@ -81,16 +82,15 @@ void showq(queue<string> gq)
     cout << '\n';
 }
 
-void jobQueueAppend(int n, string queueString, string jobToProcess)
+queue<string> queueListGet(list<queue<string>> &queueList, int at)
 {
-    if (queueString == SERVER_QUEUE)
-        queueServer << n << '|' << jobToProcess << ";";
-    if (queueString == POW_USER_QUEUE)
-        queuePUser << n << '|' << jobToProcess << ";";
-    if (queueString == USER_QUEUE)
-        queueRUser << n << '|' << jobToProcess << ";";
+    list<queue<string>>::iterator pos = queueList.begin();
+    for (size_t i = 0; i < at; i++)
+    {
+        pos++;
+    }
+    return *pos;
 }
-
 string genJobProcess(int n)
 {
     // TODO: Finish job process generator
@@ -109,40 +109,21 @@ void jobGenerator()
         n = rand() % 100 + 1;
         string jobToProcess = genJobProcess(n);
         cout << "jobGenerator: Job number is : " << n << endl;
-        
-        /*
+
         if (n >= 1 && n <= 30)
         {
             cout << "jobGenerator: job placed in server queue " << n << endl;
-            jobQueueAppend(n, SERVER_QUEUE, jobToProcess);
+            queueListGet(queueList, 0).push(jobToProcess);
         }
         else if (n >= 31 && n <= 60)
         {
             cout << "jobGenerator: job placed in power user queue " << n << endl;
-            jobQueueAppend(n, POW_USER_QUEUE, jobToProcess);
+            queueListGet(queueList, 1).push(jobToProcess);
         }
         else if (n >= 61 && n <= 100)
         {
             cout << "executeJob: job placed in user queue " << n << endl;
-            jobQueueAppend(n, USER_QUEUE, jobToProcess);
-        }
-        */
-        for (queue<string> &queue : queueList){
-        if (n >= 1 && n <= 30)
-        {
-            cout << "jobGenerator: job placed in server queue " << n << endl;
-            jobQueueAppend(n, SERVER_QUEUE, jobToProcess);
-        }
-        else if (n >= 31 && n <= 60)
-        {
-            cout << "jobGenerator: job placed in power user queue " << n << endl;
-            jobQueueAppend(n, POW_USER_QUEUE, jobToProcess);
-        }
-        else if (n >= 61 && n <= 100)
-        {
-            cout << "executeJob: job placed in user queue " << n << endl;
-            jobQueueAppend(n, USER_QUEUE, jobToProcess);
-        }
+            queueListGet(queueList, 2).push(jobToProcess);
         }
 
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
@@ -177,37 +158,17 @@ int selectJob()
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
 
     // TODO: Rewrite the function
-    std::ifstream serverStream(SERVER_QUEUE);
-    string serverContents;
-    getline(serverStream, serverContents);
-    cout << "Contents:" << serverContents << ":" << endl;
 
-    if (!serverContents.empty())
+    list<queue<string>>::iterator pos;
+    for (pos = queueList.begin(); pos != queueList.end(); pos++)
     {
-        cout << "selectJob: Server queue isn't empty: \n";
-        return stoi(serverContents.substr(0));
+        if (pos->empty())
+            break;
+        else
+        {
+            //TODO
+        }
     }
-    queueServer.close();
-
-    queuePUser.open(POW_USER_QUEUE, ios::in);
-    if (isFileEmpty(queuePUser))
-    {
-        cout << "selectJob: Pow User queue isn't empty: \n";
-        n = retrieveJobFromStream(queuePUser);
-        queuePUser.close();
-        return n;
-    }
-    queuePUser.close();
-
-    queueRUser.open(USER_QUEUE, ios::in);
-    if (isFileEmpty(queueRUser))
-    {
-        cout << "selectJob: User queue isn't empty: \n";
-        n = retrieveJobFromStream(queueRUser);
-        queueRUser.close();
-        return n;
-    }
-    queueRUser.close();
 
     cout << "output n is:" << n << "\n";
     return n;
