@@ -7,6 +7,7 @@
 #include <time.h> //for generate random seed
 // include c++ header files
 #include <string>
+#include <vector>
 #include <iostream>
 #include <fstream>
 #include <queue>
@@ -37,6 +38,7 @@ fstream queueServer;
 fstream queuePUser;
 fstream queueRUser;
 list<queue<string>> queueList;
+vector<string> jobProcessVector;
 
 int main()
 {
@@ -166,7 +168,7 @@ int selectJob()
             break;
         else
         {
-            //TODO
+            return pos->pop();
         }
     }
 
