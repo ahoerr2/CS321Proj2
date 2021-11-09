@@ -22,13 +22,15 @@ using namespace std;
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 void popLineFromFile(fstream &stream, const string streamFileName);
 string genJobProcess(int n);
-void runTaskCode(const string &taskCode, const string &queuePriority);
 void blockExecutionByPriority(const string &queuePriority);
+void runTaskCode(const int &jobID, const string &queuePriority);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
 string selectJob();
 void executeJob(int n, const string &token);
+void down(int *semid, char *semname);
+void up(int semid, char *semname);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
@@ -129,24 +131,30 @@ void jobGenerator()
 
         if (n >= 1 && n <= 30)
         {
+            //down(&semid , semname);
             queueServer.open(SERVER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in server queue " << n << endl;
             jobQueueAppend(n, queueServer, jobToProcess);
             queueServer.close();
+            //up(semid, semname);
         }
         else if (n >= 31 && n <= 60)
         {
+            //down(&semid, semname);
             queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in power user queue " << n << endl;
             jobQueueAppend(n, queuePUser, jobToProcess);
             queuePUser.close();
+            //up(semid, semname);
         }
         else if (n >= 61 && n <= 100)
         {
+            //down(&semid, semname);
             queueRUser.open(USER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in user queue " << n << endl;
             jobQueueAppend(n, queueRUser, jobToProcess);
             queueRUser.close();
+            //up(semid, semname);
         }
 
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
@@ -182,7 +190,7 @@ void jobScheduler()
 
 string selectJob()
 {
-    // ADD semanophore here
+    //down(&semid, semname);
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
@@ -193,6 +201,8 @@ string selectJob()
     int index = 0;
     string job;
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
+
+
     if (getline(queueServer, job))
     {
         queueServer.close();
@@ -213,7 +223,7 @@ string selectJob()
     {
         queueRUser.close();
         queueRUser.open(USER_QUEUE, ios::in);
-        cout << "u isn't empty!" << endl;
+        //cout << "u isn't empty!" << endl;
         popLineFromFile(queueRUser, USER_QUEUE);
         return job;
     }
@@ -221,6 +231,8 @@ string selectJob()
     queueServer.close();
     queuePUser.close();
     queueRUser.close();
+
+    //up(semid, semname);
 
     return "0|NULL";
 }
@@ -261,58 +273,38 @@ void executeJob(int n, const string& token)
     {
         cout << "executeJob: execute server job " << n << endl;
         cout << "server job pid is: " << getpid() << endl;
-        runTaskCode(token, SERVER_QUEUE);
+        runTaskCode(n, SERVER_QUEUE);
     }
     else if (n >= 31 && n <= 60)
     {
         cout << "executeJob: execute power user job " << n << endl;
-        runTaskCode(token, POW_USER_QUEUE);
+        runTaskCode(n, POW_USER_QUEUE);
     }
     else if (n >= 61 && n <= 100)
     {
         cout << "executeJob: execute user job " << n << endl;
-        runTaskCode(token, USER_QUEUE);
+        runTaskCode(n, USER_QUEUE);
     }
 }
 
-void runTaskCode(const string& taskCode, const string& queuePriority){
-    cout << "Task Code: " << taskCode << endl;
-    if (taskCode == "TODO")
+void runTaskCode(const int& jobID, const string& queuePriority){
+    if(queuePriority == SERVER_QUEUE){
+        cout << "Pid: " << getpid() << endl;
+    }
+    else if (queuePriority == POW_USER_QUEUE)
     {
-        cout << "ERROR: There was no job to process!" << endl;
+        cout << "Waiting for signal..." << endl;
+        // TODO: ADD SIGNAL CODE
+        cout << "Signal Recieved" << endl;
     }
-    else if(taskCode == "slp"){
-        usleep(20);
-        blockExecutionByPriority(queuePriority);
-        usleep(20);
-    }
-    else if(taskCode == "phw"){
-        cout << "Printing Hello World..." << endl;
-        blockExecutionByPriority(queuePriority);
-        cout << "Hello World!" << endl;
-    }
-    else if(taskCode == "pap"){
-        cout << "Printing a paradox..." << endl;
-        blockExecutionByPriority(queuePriority);
-        cout << "This statement is false!" << endl;
-    }
-    else if(taskCode == "pot"){
-        cout << "Printing power of two..." << endl;
-        int num = rand() % 10 + 1;
-        blockExecutionByPriority(queuePriority);
-        int ret = pow(2, num);
-        cout << "Power of two: " << ret << endl;
-    }
-    else if(taskCode == "gid"){
-        cout << "Printing parent id..." << endl;
-        blockExecutionByPriority(queuePriority);
-        cout << "Parent id: " << getppid() << endl;
-    }
-    else{
-        cout << "ERROR: task codes do not match!" << endl;
+    else if (queuePriority == USER_QUEUE)
+    {
+        cout << "job id: " << jobID << endl;
+        sleep(2);
+        cout << "I am wake up" << endl;
     }
 }
-
+/*
 void blockExecutionByPriority(const string& queuePriority){
     if (queuePriority == POW_USER_QUEUE)
     {
@@ -325,6 +317,7 @@ void blockExecutionByPriority(const string& queuePriority){
         sleep(2);
     }
 }
+*/
 
 void down(int *semid, char *semname)
 {
