@@ -35,8 +35,13 @@ const string USER_QUEUE = "queueRUserFile";
 
 vector<string> queueVector;
 
+int semid;
+char semname[10];
+
 int main()
 {
+    strcpy(semname, "mutex");
+
     int pid = 0;
     setJobQueues(); /* Set up the priority job queues with chosen file and/or data structure */
     if (pid = fork() > 0)
