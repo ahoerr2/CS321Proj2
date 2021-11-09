@@ -20,15 +20,16 @@ using namespace std;
 // TODO: DELETE
 void showq(queue<string> gq);
 
-queue<string> queueListGet(list<queue<string>> &queueList, int at);
+string queueListPop(list<queue<string>> &queueList, int at);
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 string genJobProcess(int n);
 int retrieveJobFromStream(fstream &stream);
+void queueListPush(list<queue<string>> &queueList, string element, int at);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
 bool isFileEmpty(fstream &queue);
-int selectJob();
+string selectJob();
 void executeJob(int n);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
@@ -78,56 +79,73 @@ void showq(queue<string> gq)
     queue<string> g = gq;
     while (!g.empty())
     {
-        cout << '\t' << g.front();
+        cout << g.front();
+        cout << " ";
         g.pop();
     }
     cout << '\n';
 }
 
-queue<string> queueListGet(list<queue<string>> &queueList, int at)
+void queueListPush(list<queue<string>> &queueList, string element, int at)
 {
     list<queue<string>>::iterator pos = queueList.begin();
     for (size_t i = 0; i < at; i++)
     {
-        pos++;
+        ++pos;
     }
-    return *pos;
+    pos->push(element);
 }
 string genJobProcess(int n)
 {
-    // TODO: Finish job process generator
-    return "TODO";
+    string ret = n + "|";
+    ret += "TODO";
+    ret += ";";
+    return ret;
 }
 
 void jobGenerator()
 {
     int i = 0, n = 0;
-    cout << "jobGenerator: Use a loop to generate M jobs in the priority queue: \n";
+    string jobToProcess;
+    cout
+        << "jobGenerator: Use a loop to generate M jobs in the priority queue: \n";
     // initialize random seed
     srand(time(0));
     while (i < M)
     {
         // generate a random number between 1-100
         n = rand() % 100 + 1;
-        string jobToProcess = genJobProcess(n);
+        jobToProcess = "1|TODO";
         cout << "jobGenerator: Job number is : " << n << endl;
-
+        cout << "jobGenerator: Job is : " << jobToProcess << endl;
         if (n >= 1 && n <= 30)
         {
             cout << "jobGenerator: job placed in server queue " << n << endl;
-            queueListGet(queueList, 0).push(jobToProcess);
+            queueListPush(queueList, jobToProcess, 0);
         }
         else if (n >= 31 && n <= 60)
         {
             cout << "jobGenerator: job placed in power user queue " << n << endl;
-            queueListGet(queueList, 1).push(jobToProcess);
+            queueListPush(queueList, jobToProcess, 1);
         }
         else if (n >= 61 && n <= 100)
         {
             cout << "executeJob: job placed in user queue " << n << endl;
-            queueListGet(queueList, 2).push(jobToProcess);
+            queueListPush(queueList, jobToProcess, 2);
         }
 
+        // TODO: Remove after debug
+        if (queueList.front().empty())
+        {
+            cout << "server queue empty!" << endl;
+        }
+        /*
+        list<queue<string>>::iterator pos;
+        for (pos = queueList.begin(); pos != queueList.end(); pos++)
+        {
+            showq(*pos);
+        }
+        */
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
@@ -135,10 +153,17 @@ void jobGenerator()
 
 void jobScheduler()
 {
+    string jobString;
+    string jobToken;
     int i = 0, n = 0, pid = 0;
     while (i < N)
-    {                    /* schedule and run maximum N jobs */
-        n = selectJob(); /* pick a job from the job priority queues */
+    {                            /* schedule and run maximum N jobs */
+        jobString = selectJob(); /* pick a job from the job priority queues */
+        n = stoi(jobString.substr(0, jobString.find('|')));
+        jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
+        cout << "N INDEX: " << n << endl;
+        cout << "TOKEN: " << jobToken << endl;
+
         if (n > 0)
         { /* valid job id */
             if (pid = fork() == 0)
@@ -151,29 +176,49 @@ void jobScheduler()
     }
 }
 
-int selectJob()
+string selectJob()
 {
     queueServer.close();
     queuePUser.close();
     queueRUser.close();
-    int n = -1;
+    string n = "0|NULL";
+
+    if (queueList.front().empty())
+    {
+        cout << "server queue empty!" << endl;
+    }
+    if (queueList.back().empty())
+    {
+        cout << "user queue empty!" << endl;
+    }
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
 
     // TODO: Rewrite the function
 
+    n = queueListPop(queueList, 0);
+
+    cout << "output n is:" << n << "\n";
+    return n;
+}
+
+string queueListPop(list<queue<string>> &queueList, int at)
+{
+    string ret = "-1|NULL";
     list<queue<string>>::iterator pos;
     for (pos = queueList.begin(); pos != queueList.end(); pos++)
     {
         if (pos->empty())
-            break;
+        {
+            cout << "QUEUE EMPTY!" << endl;
+        }
         else
         {
-            return pos->pop();
+            ret = pos->front();
+            pos->pop();
+            break;
         }
     }
-
-    cout << "output n is:" << n << "\n";
-    return n;
+    return ret;
 }
 
 int retrieveJobFromStream(fstream &stream)
