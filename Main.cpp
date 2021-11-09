@@ -1,48 +1,49 @@
 // lab04.cpp
 /* Simple process scheduler simulator program */
 /* include c header files */
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <cmath>
 #include <unistd.h> // for function fork()
 #include <stdio.h>
 #include <time.h> //for generate random seed
 // include c++ header files
+#include <cstring>
 #include <string>
-#include <vector>
 #include <iostream>
 #include <fstream>
-#include <queue>
-#include <list>
-#define N 3 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
-#define M 3 //M is the number of jobs. You may increase M to 50 when your program runs correctly
+#include <vector>
+#define N 10 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
+#define M 10 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
 using namespace std;
 
-// TODO: DELETE
-void showq(queue<string> gq);
-
-string queueListPop(list<queue<string>> &queueList, int at);
 void jobQueueAppend(int n, string queueString, string jobToProcess);
+void popLineFromFile(fstream &stream, const string streamFileName);
 string genJobProcess(int n);
-int retrieveJobFromStream(fstream &stream);
-void queueListPush(list<queue<string>> &queueList, string element, int at);
+void blockExecutionByPriority(const string &queuePriority);
+void runTaskCode(const int &jobID, const string &queuePriority);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
-bool isFileEmpty(fstream &queue);
 string selectJob();
-void executeJob(int n);
+void executeJob(int n, const string &token);
+void down(int *semid, char *semname);
+void up(int semid, char *semname);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
 
-fstream queueServer;
-fstream queuePUser;
-fstream queueRUser;
-list<queue<string>> queueList;
-vector<string> jobProcessVector;
+vector<string> queueVector;
+
+int semid;
+char semname[10];
 
 int main()
 {
+    strcpy(semname, "mutex");
+
     int pid = 0;
     setJobQueues(); /* Set up the priority job queues with chosen file and/or data structure */
     if (pid = fork() > 0)
@@ -62,90 +63,100 @@ int main()
 // And a normal user queue
 void setJobQueues()
 {
-    //Remove any potential leftover queues (in case of fatal error preventing cleanup)
-    queue<string> server;
-    queue<string> pUser;
-    queue<string> rUser;
-    queueList.assign({server, pUser, rUser});
-
-    // TODO: DELETE DEBUG INFO
-    for (queue<string> &a : queueList)
-        showq(a);
-    cout << endl;
+    cout << "Alt: Set up the job priority queue: \n";
+    fstream queueServer;
+    fstream queuePUser;
+    fstream queueRUser;
+    queueServer.open(SERVER_QUEUE, ios::out | ios::trunc);
+    queueServer.close();
+    queuePUser.open(POW_USER_QUEUE, ios::out | ios::trunc);
+    queuePUser.close();
+    queueRUser.open(USER_QUEUE, ios::out | ios::trunc);
+    queueRUser.close();
 }
 
-void showq(queue<string> gq)
+void jobQueueAppend(int n, fstream &queue, string jobToProcess)
 {
-    queue<string> g = gq;
-    while (!g.empty())
-    {
-        cout << g.front();
-        cout << " ";
-        g.pop();
-    }
-    cout << '\n';
+    queue << n << '|' << jobToProcess << "\n";
 }
 
-void queueListPush(list<queue<string>> &queueList, string element, int at)
-{
-    list<queue<string>>::iterator pos = queueList.begin();
-    for (size_t i = 0; i < at; i++)
-    {
-        ++pos;
-    }
-    pos->push(element);
-}
 string genJobProcess(int n)
 {
-    string ret = n + "|";
-    ret += "TODO";
-    ret += ";";
+    string ret = "ERROR";
+    switch (n % 5)
+    {
+    //Sleep(random amount of time)
+    case 0:
+        ret = "slp";
+        break;
+        // Prints hello world
+    case 1:
+        ret = "phw";
+        break;
+        // Print a paradox
+    case 2:
+        ret = "pap";
+        break;
+        // Prints out a power of two between one and ten
+    case 3:
+        ret = "pot";
+        break;
+        // Prints out the parent pid of the process
+    case 4:
+        ret = "gid";
+        break;
+    }
     return ret;
 }
 
 void jobGenerator()
 {
     int i = 0, n = 0;
-    string jobToProcess;
-    cout
-        << "jobGenerator: Use a loop to generate M jobs in the priority queue: \n";
+    cout << "jobGenerator: Use a loop to generate M jobs in the priority queue: \n";
     // initialize random seed
     srand(time(0));
+    string serverAppend = "";
+    string pUserAppend = "";
+    string rUserAppend = "";
+    // TODO: Open semaphone
+    fstream queueServer;
+    fstream queuePUser;
+    fstream queueRUser;
     while (i < M)
     {
         // generate a random number between 1-100
         n = rand() % 100 + 1;
-        jobToProcess = "1|TODO";
+        string jobToProcess = genJobProcess(n);
         cout << "jobGenerator: Job number is : " << n << endl;
-        cout << "jobGenerator: Job is : " << jobToProcess << endl;
+
         if (n >= 1 && n <= 30)
         {
+            //down(&semid , semname);
+            queueServer.open(SERVER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in server queue " << n << endl;
-            queueListPush(queueList, jobToProcess, 0);
+            jobQueueAppend(n, queueServer, jobToProcess);
+            queueServer.close();
+            //up(semid, semname);
         }
         else if (n >= 31 && n <= 60)
         {
+            //down(&semid, semname);
+            queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in power user queue " << n << endl;
-            queueListPush(queueList, jobToProcess, 1);
+            jobQueueAppend(n, queuePUser, jobToProcess);
+            queuePUser.close();
+            //up(semid, semname);
         }
         else if (n >= 61 && n <= 100)
         {
-            cout << "executeJob: job placed in user queue " << n << endl;
-            queueListPush(queueList, jobToProcess, 2);
+            //down(&semid, semname);
+            queueRUser.open(USER_QUEUE, ios::out | ios::app);
+            cout << "jobGenerator: job placed in user queue " << n << endl;
+            jobQueueAppend(n, queueRUser, jobToProcess);
+            queueRUser.close();
+            //up(semid, semname);
         }
 
-        // TODO: Remove after debug
-        if (queueList.front().empty())
-        {
-            cout << "server queue empty!" << endl;
-        }
-        /*
-        list<queue<string>>::iterator pos;
-        for (pos = queueList.begin(); pos != queueList.end(); pos++)
-        {
-            showq(*pos);
-        }
-        */
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
@@ -159,16 +170,17 @@ void jobScheduler()
     while (i < N)
     {                            /* schedule and run maximum N jobs */
         jobString = selectJob(); /* pick a job from the job priority queues */
+        //cout << "jobString: " << jobString << endl;
         n = stoi(jobString.substr(0, jobString.find('|')));
         jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
         cout << "N INDEX: " << n << endl;
         cout << "TOKEN: " << jobToken << endl;
-
+        
         if (n > 0)
         { /* valid job id */
             if (pid = fork() == 0)
             {                  /* child worker process */
-                executeJob(n); /* execute the job */
+                executeJob(n,jobToken); /* execute the job */
                 exit(0);
             }
         }
@@ -178,78 +190,147 @@ void jobScheduler()
 
 string selectJob()
 {
+    //down(&semid, semname);
+    fstream queueServer;
+    fstream queuePUser;
+    fstream queueRUser;
+    queueServer.open(SERVER_QUEUE, ios::in);
+    queuePUser.open(POW_USER_QUEUE, ios::in);
+    queueRUser.open(USER_QUEUE, ios::in);
+
+    int index = 0;
+    string job;
+    cout << "selectJob: Select a highest priority job from the priority queue: \n";
+
+
+    if (getline(queueServer, job))
+    {
+        queueServer.close();
+        queueServer.open(SERVER_QUEUE, ios::in);
+        //cout << "server isn't empty!" << endl;
+        popLineFromFile(queueServer, SERVER_QUEUE);
+        return job;
+    }
+    else if (getline(queuePUser, job))
+    {
+        queuePUser.close();
+        queuePUser.open(POW_USER_QUEUE, ios::in);
+        //cout << "pu isn't empty!" << endl;
+        popLineFromFile(queuePUser, POW_USER_QUEUE);
+        return job;
+    }
+    else if (getline(queueRUser, job))
+    {
+        queueRUser.close();
+        queueRUser.open(USER_QUEUE, ios::in);
+        //cout << "u isn't empty!" << endl;
+        popLineFromFile(queueRUser, USER_QUEUE);
+        return job;
+    }
+
     queueServer.close();
     queuePUser.close();
     queueRUser.close();
-    string n = "0|NULL";
 
-    if (queueList.front().empty())
-    {
-        cout << "server queue empty!" << endl;
-    }
-    if (queueList.back().empty())
-    {
-        cout << "user queue empty!" << endl;
-    }
-    cout << "selectJob: Select a highest priority job from the priority queue: \n";
+    //up(semid, semname);
 
-    // TODO: Rewrite the function
-
-    n = queueListPop(queueList, 0);
-
-    cout << "output n is:" << n << "\n";
-    return n;
+    return "0|NULL";
 }
 
-string queueListPop(list<queue<string>> &queueList, int at)
+void popLineFromFile(fstream &stream, const string streamFileName)
 {
-    string ret = "-1|NULL";
-    list<queue<string>>::iterator pos;
-    for (pos = queueList.begin(); pos != queueList.end(); pos++)
+    // Creates a temp file of all of the passwords, inserts each line into the new file until it finds the username
+    // corresponding to the current user name. WHen it does it inserts the current User name and new password onto the line instead
+    fstream tempFile;
+    tempFile.open("temp", ios::out);
+    int index = 0;
+    string streamLine = "";
+    string ret = "";
+    //cout << "Seletcting job..." << endl;
+    while (getline(stream, streamLine))
     {
-        if (pos->empty())
+        //cout << "string: " << streamLine << endl;
+        if (index == 0)
         {
-            cout << "QUEUE EMPTY!" << endl;
+            //cout << "skip line: " << streamLine << endl;
+            ++index;
+            continue;
         }
-        else
-        {
-            ret = pos->front();
-            pos->pop();
-            break;
-        }
+        //cout << "string add back in: " << streamLine << endl;
+        tempFile << streamLine << endl;
+        index++;
     }
-    return ret;
+    tempFile.close();
+
+    // The old password file is deleted and the copies password file becomes the new password file.
+    remove(streamFileName.c_str());
+    rename("temp", streamFileName.c_str());
 }
 
-int retrieveJobFromStream(fstream &stream)
-{
-    return stream.peek();
-}
-
-bool isFileEmpty(fstream &queue)
-{
-    return queue.peek() == ifstream::traits_type::eof();
-}
-
-void executeJob(int n)
+void executeJob(int n, const string& token)
 {
     if (n >= 1 && n <= 30)
     {
         cout << "executeJob: execute server job " << n << endl;
-        /* ... */
+        cout << "server job pid is: " << getpid() << endl;
+        runTaskCode(n, SERVER_QUEUE);
     }
     else if (n >= 31 && n <= 60)
     {
         cout << "executeJob: execute power user job " << n << endl;
-        /* ... */
+        runTaskCode(n, POW_USER_QUEUE);
     }
     else if (n >= 61 && n <= 100)
     {
         cout << "executeJob: execute user job " << n << endl;
-        /* ... */
+        runTaskCode(n, USER_QUEUE);
     }
-    else
+}
+
+void runTaskCode(const int& jobID, const string& queuePriority){
+    if(queuePriority == SERVER_QUEUE){
+        cout << "Pid: " << getpid() << endl;
+    }
+    else if (queuePriority == POW_USER_QUEUE)
     {
-        cout << "Invalid job #: " << n << endl;
+        cout << "Waiting for signal..." << endl;
+        // TODO: ADD SIGNAL CODE
+        cout << "Signal Recieved" << endl;
     }
+    else if (queuePriority == USER_QUEUE)
+    {
+        cout << "job id: " << jobID << endl;
+        sleep(2);
+        cout << "I am wake up" << endl;
+    }
+}
+/*
+void blockExecutionByPriority(const string& queuePriority){
+    if (queuePriority == POW_USER_QUEUE)
+    {
+        cout << "Waiting for signal..." << endl;
+        // TODO: ADD SIGNAL CODE
+        cout << "Signal Recieved" << endl;
+    }
+    else if (queuePriority == USER_QUEUE)
+    {
+        sleep(2);
+    }
+}
+*/
+
+void down(int *semid, char *semname)
+{
+    while (*semid = creat(semname, 0) == -1) /* && error == EACCES)*/
+    {
+        cout << "down " << semname << ": I am blocked.\n";
+        sleep(1);
+    }
+}
+
+void up(int semid, char *semname)
+{
+    close(semid);
+    unlink(semname);
+    cout << "up " << semname << ": I am waked up.\n";
 }
