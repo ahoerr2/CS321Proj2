@@ -2,6 +2,7 @@
 /* Simple process scheduler simulator program */
 /* include c header files */
 #include <stdlib.h>
+#include <cmath>
 #include <unistd.h> // for function fork()
 #include <stdio.h>
 #include <time.h> //for generate random seed
@@ -18,11 +19,13 @@ using namespace std;
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 void popLineFromFile(fstream &stream, const string streamFileName);
 string genJobProcess(int n);
+void runTaskCode(const string &taskCode, const string &queuePriority);
+void blockExecutionByPriority(const string &queuePriority);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
 string selectJob();
-void executeJob(int n);
+void executeJob(int n, const string &token);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
@@ -76,21 +79,21 @@ string genJobProcess(int n)
     case 0:
         ret = "slp";
         break;
-        // Create new file, named "nFile" (sends message if file was already created)
+        // Prints hello world
     case 1:
-        ret = "cnf";
+        ret = "phw";
         break;
-        // Delete the file, named "nFile" (sends message if file doesn't exist)
+        // Print a paradox
     case 2:
-        ret = "dnf";
+        ret = "pap";
         break;
         // Prints out a power of two between one and ten
     case 3:
         ret = "pot";
         break;
-        // Prints out the pid of the process
+        // Prints out the parent pid of the process
     case 4:
-        ret = "pid";
+        ret = "gid";
         break;
     }
     return ret;
@@ -161,7 +164,7 @@ void jobScheduler()
         { /* valid job id */
             if (pid = fork() == 0)
             {                  /* child worker process */
-                executeJob(n); /* execute the job */
+                executeJob(n,jobToken); /* execute the job */
                 exit(0);
             }
         }
@@ -244,21 +247,73 @@ void popLineFromFile(fstream &stream, const string streamFileName)
     rename("temp", streamFileName.c_str());
 }
 
-void executeJob(int n)
+void executeJob(int n, const string& token)
 {
     if (n >= 1 && n <= 30)
     {
         cout << "executeJob: execute server job " << n << endl;
-        /* ... */
+        cout << "server job pid is: " << getpid() << endl;
+        runTaskCode(token, SERVER_QUEUE);
     }
     else if (n >= 31 && n <= 60)
     {
         cout << "executeJob: execute power user job " << n << endl;
-        /* ... */
+        runTaskCode(token, POW_USER_QUEUE);
     }
     else if (n >= 61 && n <= 100)
     {
         cout << "executeJob: execute user job " << n << endl;
-        /* ... */
+        runTaskCode(token, USER_QUEUE);
+    }
+}
+
+void runTaskCode(const string& taskCode, const string& queuePriority){
+    cout << "Task Code: " << taskCode << endl;
+    if (taskCode == "TODO")
+    {
+        cout << "ERROR: There was no job to process!" << endl;
+    }
+    else if(taskCode == "slp"){
+        usleep(20);
+        blockExecutionByPriority(queuePriority);
+        usleep(20);
+    }
+    else if(taskCode == "phw"){
+        cout << "Printing Hello World..." << endl;
+        blockExecutionByPriority(queuePriority);
+        cout << "Hello World!" << endl;
+    }
+    else if(taskCode == "pap"){
+        cout << "Printing a paradox..." << endl;
+        blockExecutionByPriority(queuePriority);
+        cout << "This statement is false!" << endl;
+    }
+    else if(taskCode == "pot"){
+        cout << "Printing power of two..." << endl;
+        int num = rand() % 10 + 1;
+        blockExecutionByPriority(queuePriority);
+        int ret = pow(2, num);
+        cout << "Power of two: " << ret << endl;
+    }
+    else if(taskCode == "gid"){
+        cout << "Printing parent id..." << endl;
+        blockExecutionByPriority(queuePriority);
+        cout << "Parent id: " << getppid() << endl;
+    }
+    else{
+        cout << "ERROR: task codes do not match!" << endl;
+    }
+}
+
+void blockExecutionByPriority(const string& queuePriority){
+    if (queuePriority == POW_USER_QUEUE)
+    {
+        cout << "Waiting for signal..." << endl;
+        // TODO: ADD SIGNAL CODE
+        cout << "Signal Recieved" << endl;
+    }
+    else if (queuePriority == USER_QUEUE)
+    {
+        sleep(2);
     }
 }
