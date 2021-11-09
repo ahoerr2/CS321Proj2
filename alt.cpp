@@ -1,12 +1,15 @@
 // lab04.cpp
 /* Simple process scheduler simulator program */
 /* include c header files */
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <cmath>
 #include <unistd.h> // for function fork()
 #include <stdio.h>
 #include <time.h> //for generate random seed
 // include c++ header files
+#include <cstring>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -316,4 +319,20 @@ void blockExecutionByPriority(const string& queuePriority){
     {
         sleep(2);
     }
+}
+
+void down(int *semid, char *semname)
+{
+    while (*semid = creat(semname, 0) == -1) /* && error == EACCES)*/
+    {
+        cout << "down " << semname << ": I am blocked.\n";
+        sleep(1);
+    }
+}
+
+void up(int semid, char *semname)
+{
+    close(semid);
+    unlink(semname);
+    cout << "up " << semname << ": I am waked up.\n";
 }
