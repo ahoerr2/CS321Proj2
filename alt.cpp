@@ -54,11 +54,11 @@ void setJobQueues()
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
-    queueServer.open(SERVER_QUEUE, ios::out);
+    queueServer.open(SERVER_QUEUE, ios::out | ios::trunc);
     queueServer.close();
-    queuePUser.open(POW_USER_QUEUE, ios::out);
+    queuePUser.open(POW_USER_QUEUE, ios::out | ios::trunc);
     queuePUser.close();
-    queueRUser.open(USER_QUEUE, ios::out);
+    queueRUser.open(USER_QUEUE, ios::out | ios::trunc);
     queueRUser.close();
 }
 
@@ -69,8 +69,31 @@ void jobQueueAppend(int n, fstream &queue, string jobToProcess)
 
 string genJobProcess(int n)
 {
-    // TODO: Finish job process generator
-    return "TODO";
+    string ret = "ERROR";
+    switch (n % 5)
+    {
+    //Sleep(random amount of time)
+    case 0:
+        ret = "slp";
+        break;
+        // Create new file, named "nFile" (sends message if file was already created)
+    case 1:
+        ret = "cnf";
+        break;
+        // Delete the file, named "nFile" (sends message if file doesn't exist)
+    case 2:
+        ret = "dnf";
+        break;
+        // Prints out a power of two between one and ten
+    case 3:
+        ret = "pot";
+        break;
+        // Prints out the pid of the process
+    case 4:
+        ret = "pid";
+        break;
+    }
+    return ret;
 }
 
 void jobGenerator()
@@ -110,7 +133,7 @@ void jobGenerator()
         else if (n >= 61 && n <= 100)
         {
             queueRUser.open(USER_QUEUE, ios::out | ios::app);
-            cout << "executeJob: job placed in user queue " << n << endl;
+            cout << "jobGenerator: job placed in user queue " << n << endl;
             jobQueueAppend(n, queueRUser, jobToProcess);
             queueRUser.close();
         }
@@ -128,7 +151,7 @@ void jobScheduler()
     while (i < N)
     {                            /* schedule and run maximum N jobs */
         jobString = selectJob(); /* pick a job from the job priority queues */
-        cout << "jobString: " << jobString << endl;
+        //cout << "jobString: " << jobString << endl;
         n = stoi(jobString.substr(0, jobString.find('|')));
         jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
         cout << "N INDEX: " << n << endl;
@@ -163,7 +186,7 @@ string selectJob()
     {
         queueServer.close();
         queueServer.open(SERVER_QUEUE, ios::in);
-        cout << "server isn't empty!" << endl;
+        //cout << "server isn't empty!" << endl;
         popLineFromFile(queueServer, SERVER_QUEUE);
         return job;
     }
@@ -171,7 +194,7 @@ string selectJob()
     {
         queuePUser.close();
         queuePUser.open(POW_USER_QUEUE, ios::in);
-        cout << "pu isn't empty!" << endl;
+        //cout << "pu isn't empty!" << endl;
         popLineFromFile(queuePUser, POW_USER_QUEUE);
         return job;
     }
