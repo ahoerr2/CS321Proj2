@@ -14,6 +14,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <signal.h>
 #define N 10 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
 #define M 10 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
@@ -36,6 +37,9 @@ const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
 
 vector<string> queueVector;
+
+void wake_up(int s);
+int intr = 0;
 
 int semid;
 char semname[10];
@@ -293,9 +297,12 @@ void runTaskCode(const int& jobID, const string& queuePriority){
     }
     else if (queuePriority == POW_USER_QUEUE)
     {
-        cout << "Waiting for signal..." << endl;
-        // TODO: ADD SIGNAL CODE
-        cout << "Signal Recieved" << endl;
+        int pid = getpid();
+        cout << "Process " << pid << " will go to sleep and wait for the ^C signal to wake up\n";
+        signal(SIGINT, wake_up);
+        while (!intr){
+        } //wait for the ^C to wake up
+        cout << "Power User Process has woken up" << endl;
     }
     else if (queuePriority == USER_QUEUE)
     {
@@ -333,4 +340,10 @@ void up(int semid, char *semname)
     close(semid);
     unlink(semname);
     cout << "up " << semname << ": I am waked up.\n";
+}
+
+void wake_up(int s)
+{
+    cout << "\nI will wake up now.\n";
+    intr = 1;
 }
