@@ -10,17 +10,18 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#define N 3 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
-#define M 3 //M is the number of jobs. You may increase M to 50 when your program runs correctly
+#define N 10 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
+#define M 10 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
 using namespace std;
 
 void jobQueueAppend(int n, string queueString, string jobToProcess);
+void popLineFromFile(fstream &stream, const string streamFileName);
 string genJobProcess(int n);
 void setJobQueues();
 void jobGenerator();
 void jobScheduler();
-int selectJob();
+string selectJob();
 void executeJob(int n);
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
@@ -121,10 +122,18 @@ void jobGenerator()
 
 void jobScheduler()
 {
+    string jobString;
+    string jobToken;
     int i = 0, n = 0, pid = 0;
     while (i < N)
-    {                    /* schedule and run maximum N jobs */
-        n = selectJob(); /* pick a job from the job priority queues */
+    {                            /* schedule and run maximum N jobs */
+        jobString = selectJob(); /* pick a job from the job priority queues */
+        cout << "jobString: " << jobString << endl;
+        n = stoi(jobString.substr(0, jobString.find('|')));
+        jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
+        cout << "N INDEX: " << n << endl;
+        cout << "TOKEN: " << jobToken << endl;
+        
         if (n > 0)
         { /* valid job id */
             if (pid = fork() == 0)
@@ -137,7 +146,7 @@ void jobScheduler()
     }
 }
 
-int selectJob()
+string selectJob()
 {
     // ADD semanophore here
     fstream queueServer;
@@ -152,62 +161,64 @@ int selectJob()
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
     if (getline(queueServer, job))
     {
+        queueServer.close();
+        queueServer.open(SERVER_QUEUE, ios::in);
         cout << "server isn't empty!" << endl;
-        do
-        {
-            cout << "server job: " << job << endl;
-            queueVector.push_back(job);
-        } while (getline(queueServer, job));
+        popLineFromFile(queueServer, SERVER_QUEUE);
+        return job;
     }
     else if (getline(queuePUser, job))
     {
+        queuePUser.close();
+        queuePUser.open(POW_USER_QUEUE, ios::in);
         cout << "pu isn't empty!" << endl;
-        do
-        {
-            cout << "pow job: " << job << endl;
-            queueVector.push_back(job);
-        } while (getline(queuePUser, job));
+        popLineFromFile(queuePUser, POW_USER_QUEUE);
+        return job;
     }
     else if (getline(queueRUser, job))
     {
+        queueRUser.close();
+        queueRUser.open(USER_QUEUE, ios::in);
         cout << "u isn't empty!" << endl;
-        do
-        {
-            cout << "user job: " << job << endl;
-            queueVector.push_back(job);
-        } while (getline(queueRUser, job));
+        popLineFromFile(queueRUser, USER_QUEUE);
+        return job;
     }
 
     queueServer.close();
     queuePUser.close();
     queueRUser.close();
 
-    return 0;
+    return "0|NULL";
 }
 
-void popLineFromFile(fstream &stream, const string& streamFileName)
+void popLineFromFile(fstream &stream, const string streamFileName)
 {
     // Creates a temp file of all of the passwords, inserts each line into the new file until it finds the username
     // corresponding to the current user name. WHen it does it inserts the current User name and new password onto the line instead
     fstream tempFile;
     tempFile.open("temp", ios::out);
     int index = 0;
-    string streamLine;
-    string ret;
+    string streamLine = "";
+    string ret = "";
+    //cout << "Seletcting job..." << endl;
     while (getline(stream, streamLine))
     {
-        if (index = 0)
+        //cout << "string: " << streamLine << endl;
+        if (index == 0)
         {
-            ret = streamLine;
+            //cout << "skip line: " << streamLine << endl;
+            ++index;
             continue;
         }
-    };
+        //cout << "string add back in: " << streamLine << endl;
+        tempFile << streamLine << endl;
+        index++;
+    }
     tempFile.close();
 
     // The old password file is deleted and the copies password file becomes the new password file.
-    const char *strmFileName = streamFileName.c_str();
-    remove(strmFileName);
-    rename("temp.txt", strmFileName);
+    remove(streamFileName.c_str());
+    rename("temp", streamFileName.c_str());
 }
 
 void executeJob(int n)
