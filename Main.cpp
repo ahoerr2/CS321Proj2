@@ -21,8 +21,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define N 50 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
-#define M 20 //M is the number of jobs. You may increase M to 50 when your program runs correctly
+#define N 30 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
+#define M 30 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
 using namespace std;
 
@@ -41,13 +41,14 @@ string selectJob();
 void executeJob(int n);
 void down(int *semid, char *semname);
 void up(int semid, char *semname);
+int getFileLinesNum(fstream &queue);
 
 const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
-const int MAX_SERVER_QUEUE = 5;
-const int MAX_POW_USER_QUEUE = 5;
-const int MAX_USER_QUEUE = 5;
+const int MAX_SERVER_QUEUE = 15;
+const int MAX_POW_USER_QUEUE = 15;
+const int MAX_USER_QUEUE = 15;
 
 int serverFileSize = 0;
 int rUserFileSize = 0;
@@ -81,8 +82,6 @@ int main()
         exit(0);
     }
 
-    
-    
     return (1);
 }
 
@@ -105,7 +104,17 @@ void setJobQueues()
 //Adds the line denoting a job to process to the end of the queue
 void jobQueueAppend(int n, fstream &queue)
 {
-    queue << n << '|' << "VALID" << "\n";
+    queue << n << '|' << "VALID"
+          << "\n";
+}
+
+int getFileLinesNum(fstream &queue)
+{
+    int lineNum = 0;
+    string line;
+    while (std::getline(queue, line))
+        ++lineNum;
+    return lineNum;
 }
 
 // Generates a randon job number, that job number is then inserted to one of three queues with the size of number determining what queue it goes in
@@ -122,6 +131,7 @@ void jobGenerator()
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
+    int lines = 0;
     while (i < M)
     {
         // generate a random number between 1-100
@@ -133,19 +143,24 @@ void jobGenerator()
         //Place job number in the server queue by appending it to the end of the file
         if (n >= 1 && n <= 30)
         {
-            //cout << "made it to down " << n << endl;
-            down(&semid , semname);
-            queueServer.open(SERVER_QUEUE, ios::out | ios::app); 
-            if(serverFileSize < MAX_SERVER_QUEUE){
-                cout << "jobGenerator: job placed in server queue " << n << endl;
-                cout << "server File Size: " << serverFileSize << endl;
-                jobQueueAppend(n, queueServer);
-                serverFileSize++;
-            }
-            else{
-                cout << "jobGenerator: server queue is full " << n << endl;
-            }
+            cout << "made it to down " << n << endl;
+            down(&semid, semname);
+            queueServer.open(SERVER_QUEUE, ios::in);
+            lines = getFileLinesNum(queueServer);
             queueServer.close();
+            if (lines <= MAX_SERVER_QUEUE)
+            {
+                queueServer.open(SERVER_QUEUE, ios::out | ios::app);
+                cout << "jobGenerator: job placed in server queue " << n << endl;
+                cout << "server File Size: " << lines << endl;
+                jobQueueAppend(n, queueServer);
+                queueServer.close();
+            }
+            else
+            {
+                cout << "jobGenerator: server queue is full " << n << endl;
+                cout << "server File Size: " << lines << endl;
+            }
             up(semid, semname);
         }
 
@@ -153,17 +168,21 @@ void jobGenerator()
         else if (n >= 31 && n <= 60)
         {
             down(&semid, semname);
-            queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
-            if (pUserFileSize < MAX_POW_USER_QUEUE)
+            queuePUser.open(POW_USER_QUEUE, ios::in);
+            lines = getFileLinesNum(queuePUser);
+            queuePUser.close();
+            if (lines <= MAX_POW_USER_QUEUE)
             {
+                queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
                 cout << "jobGenerator: job placed in power user queue " << n << endl;
-                cout << "pow user File Size: " << pUserFileSize << endl;
+                cout << "pow user File Size: " << lines << endl;
                 jobQueueAppend(n, queuePUser);
-                pUserFileSize++;
+                queuePUser.close();
             }
             else
             {
                 cout << "jobGenerator: pow user queue is full " << n << endl;
+                cout << "pow user File Size: " << lines << endl;
             }
             queuePUser.close();
             up(semid, semname);
@@ -173,17 +192,21 @@ void jobGenerator()
         else if (n >= 61 && n <= 100)
         {
             down(&semid, semname);
-            queueRUser.open(USER_QUEUE, ios::out | ios::app);
-            if (rUserFileSize < MAX_USER_QUEUE)
+            queueRUser.open(USER_QUEUE, ios::in);
+            lines = getFileLinesNum(queueRUser);
+            queueRUser.close();
+            if (lines <= MAX_USER_QUEUE)
             {
+                queueRUser.open(USER_QUEUE, ios::out | ios::app);
                 cout << "jobGenerator: job placed in user queue " << n << endl;
-                cout << "user File Size: " << rUserFileSize << endl;
+                cout << "user File Size: " << lines << endl;
                 jobQueueAppend(n, queueRUser);
-                rUserFileSize++;
+                queueRUser.close();
             }
             else
             {
                 cout << "jobGenerator: user queue is full " << n << endl;
+                cout << "user File Size: " << lines << endl;
             }
             queueRUser.close();
             up(semid, semname);
@@ -204,16 +227,16 @@ void jobScheduler()
     int status = 0;
     /* schedule and run maximum N jobs */
     while (i < N)
-    {   /* pick a job from the job priority queues */
-        jobString = selectJob(); 
+    { /* pick a job from the job priority queues */
+        jobString = selectJob();
         //cout << "jobString: " << jobString << endl;
         n = stoi(jobString.substr(0, jobString.find('|')));
         //jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
-        
+
         //Debug info to check how jobs are processed
         //cout << "N INDEX: " << n << endl;
         //cout << "TOKEN: " << jobToken << endl;
-        
+
         if (n > 0)
         { /* valid job id */
             if (pid = fork() == 0)
@@ -221,11 +244,10 @@ void jobScheduler()
                 executeJob(n); /* execute the job */
                 exit(0);
             }
-            i++;
         }
+        i++;
     }
 }
-
 
 // Selects a job from the highest priority queue (ORDER: SERVER, POW USER, USER), then returns the job string if a job was found or zero to skip the job if nothing was in queues
 string selectJob()
@@ -244,7 +266,7 @@ string selectJob()
     if (getline(queueServer, job))
     {
         queueServer.close();
-        up(semid,semname);
+        up(semid, semname);
 
         //The top line of the file is deleted, and the queue size is decremented
         down(&semid, semname);
@@ -269,7 +291,7 @@ string selectJob()
 
         //The top line of the file is deleted, and the queue size is decremented
         down(&semid, semname);
-        queuePUser.open(POW_USER_QUEUE, ios::in);        
+        queuePUser.open(POW_USER_QUEUE, ios::in);
         popLineFromFile(queuePUser, POW_USER_QUEUE);
         pUserFileSize--;
         up(semid, semname);
@@ -355,8 +377,10 @@ void executeJob(int n)
 }
 
 // Responsible for the executing each specific routiens of each job priority
-void runTaskCode(const int& jobID, const string& queuePriority){
-    if(queuePriority == SERVER_QUEUE){
+void runTaskCode(const int &jobID, const string &queuePriority)
+{
+    if (queuePriority == SERVER_QUEUE)
+    {
         cout << "Pid: " << getpid() << endl;
     }
     else if (queuePriority == POW_USER_QUEUE)
@@ -364,9 +388,9 @@ void runTaskCode(const int& jobID, const string& queuePriority){
         int pid = getpid();
         cout << "Process " << pid << " will go to sleep and wait for the ^C signal to wake up\n";
         signal(SIGINT, wake_up);
-        while(!intr); //wait for the ^C to wake up
+        while (!intr)
+            ; //wait for the ^C to wake up
         cout << "Power User Process has woken up" << endl;
-
     }
     else if (queuePriority == USER_QUEUE)
     {
