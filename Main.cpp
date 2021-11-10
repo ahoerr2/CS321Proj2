@@ -1,13 +1,16 @@
 
-/* Simple process scheduler simulator program */
+/* This is a simple process scheduler, it will generate a set number of jobs and then select the jobs from multiple processes simultaneously and execute them*/
+/* This is processed by using three files that act as queues, in addition each queue operation has critical regions to protect from face condition*/
+/* By pressing control C instead of terminating the program it will process all the jobs of the power user queue */
+
 /* include c header files */
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <cmath>
 #include <unistd.h> // for function fork()
 #include <stdio.h>
 #include <time.h> //for generate random seed
+
 // include c++ header files
 #include <cstring>
 #include <string>
@@ -23,6 +26,9 @@
 #define debug 1
 using namespace std;
 
+// TODO: QUEUE job size
+
+//C++ functions
 void jobQueueAppend(int n, string queueString, string jobToProcess);
 void popLineFromFile(fstream &stream, const string streamFileName);
 string genJobProcess(int n);
@@ -39,14 +45,15 @@ const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
 
-vector<string> queueVector;
-
+// For processing signals
 void wake_up(int s);
 int intr = 0;
 
+// For handling semnaphores
 int semid;
 char semname[10];
 
+// Defines the semnaphore as a mutex, forks a process to generate jobs and to run the scheduler, waits for all the children to complete and then turns off.
 int main()
 {
     strcpy(semname, "mutex");
@@ -63,9 +70,12 @@ int main()
     else
     {                   /* job scheduler process */
         jobScheduler(); /* schedule and execute the jobs. */
+        while ((wpid = wait(&status)) > 0);
+        cout << "Exiting Program..." << endl;
         exit(0);
     }
-    while ((wpid = wait(&status)) > 0);
+    //while ((wpid = wait(&status)) > 0);
+    //cout << "Exiting Program..." << endl;
     return (1);
 }
 
@@ -85,11 +95,13 @@ void setJobQueues()
     queueRUser.close();
 }
 
+//Adds the line denoting a job to process to the end of the queue
 void jobQueueAppend(int n, fstream &queue, string jobToProcess)
 {
     queue << n << '|' << jobToProcess << "\n";
 }
 
+//Deprecated job process generator
 string genJobProcess(int n)
 {
     string ret = "ERROR";
@@ -119,6 +131,8 @@ string genJobProcess(int n)
     return ret;
 }
 
+// Generates a randon job number, that job number is then inserted to one of three queues with the size of number determining what queue it goes in
+// Each of the queues is opened in a critical region to prevent race conditions
 void jobGenerator()
 {
     int i = 0, n = 0;
@@ -128,7 +142,6 @@ void jobGenerator()
     string serverAppend = "";
     string pUserAppend = "";
     string rUserAppend = "";
-    // TODO: Open semaphone
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
@@ -139,6 +152,9 @@ void jobGenerator()
         string jobToProcess = genJobProcess(n);
         cout << "jobGenerator: Job number is : " << n << endl;
 
+        // Place random number in one of three queues and open a critical region to protect from race conditions
+
+        //Place job number in the server queue by appending it to the end of the file
         if (n >= 1 && n <= 30)
         {
             cout << "made it to down " << n << endl;
@@ -149,6 +165,8 @@ void jobGenerator()
             queueServer.close();
             up(semid, semname);
         }
+
+        // Place job in power user queue by appending it to the end of the file
         else if (n >= 31 && n <= 60)
         {
             down(&semid, semname);
@@ -158,6 +176,8 @@ void jobGenerator()
             queuePUser.close();
             up(semid, semname);
         }
+
+        // Place job in user queue by appending job to the end of the file
         else if (n >= 61 && n <= 100)
         {
             down(&semid, semname);
@@ -173,13 +193,15 @@ void jobGenerator()
     }
 }
 
+// The Scheduler schedules a number of jobs by first selecting a job from the highest priority queues
 void jobScheduler()
 {
     string jobString;
     string jobToken;
     int i = 0, n = 0, pid = 0;
+    /* schedule and run maximum N jobs */
     while (i < N)
-    {                            /* schedule and run maximum N jobs */
+    {                            
         jobString = selectJob(); /* pick a job from the job priority queues */
         //cout << "jobString: " << jobString << endl;
         n = stoi(jobString.substr(0, jobString.find('|')));
@@ -204,10 +226,6 @@ string selectJob()
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
-
-    
-    
-
     int index = 0;
     string job;
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
