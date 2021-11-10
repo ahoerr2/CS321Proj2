@@ -1,4 +1,4 @@
-// lab04.cpp
+
 /* Simple process scheduler simulator program */
 /* include c header files */
 #include <sys/stat.h>
@@ -15,8 +15,11 @@
 #include <fstream>
 #include <vector>
 #include <signal.h>
-#define N 10 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
-#define M 10 //M is the number of jobs. You may increase M to 50 when your program runs correctly
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#define N 100 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
+#define M 50 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
 using namespace std;
 
@@ -47,8 +50,10 @@ char semname[10];
 int main()
 {
     strcpy(semname, "mutex");
-
     int pid = 0;
+    pid_t wpid;
+    int status;
+    signal(SIGINT, wake_up);
     setJobQueues(); /* Set up the priority job queues with chosen file and/or data structure */
     if (pid = fork() > 0)
     {                   /* jobGenerator process */
@@ -60,6 +65,7 @@ int main()
         jobScheduler(); /* schedule and execute the jobs. */
         exit(0);
     }
+    while ((wpid = wait(&status)) > 0);
     return (1);
 }
 
@@ -135,30 +141,31 @@ void jobGenerator()
 
         if (n >= 1 && n <= 30)
         {
-            //down(&semid , semname);
+            cout << "made it to down " << n << endl;
+            down(&semid , semname);
             queueServer.open(SERVER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in server queue " << n << endl;
             jobQueueAppend(n, queueServer, jobToProcess);
             queueServer.close();
-            //up(semid, semname);
+            up(semid, semname);
         }
         else if (n >= 31 && n <= 60)
         {
-            //down(&semid, semname);
+            down(&semid, semname);
             queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in power user queue " << n << endl;
             jobQueueAppend(n, queuePUser, jobToProcess);
             queuePUser.close();
-            //up(semid, semname);
+            up(semid, semname);
         }
         else if (n >= 61 && n <= 100)
         {
-            //down(&semid, semname);
+            down(&semid, semname);
             queueRUser.open(USER_QUEUE, ios::out | ios::app);
             cout << "jobGenerator: job placed in user queue " << n << endl;
             jobQueueAppend(n, queueRUser, jobToProcess);
             queueRUser.close();
-            //up(semid, semname);
+            up(semid, semname);
         }
 
         usleep(100); //100 can be adjusted to synchronize the job generation and job scheduling processes.
@@ -177,8 +184,8 @@ void jobScheduler()
         //cout << "jobString: " << jobString << endl;
         n = stoi(jobString.substr(0, jobString.find('|')));
         jobToken = jobString.substr(jobString.find('|') + 1, jobString.find(';') - jobString.find('|') - 1);
-        cout << "N INDEX: " << n << endl;
-        cout << "TOKEN: " << jobToken << endl;
+        //cout << "N INDEX: " << n << endl;
+        //cout << "TOKEN: " << jobToken << endl;
         
         if (n > 0)
         { /* valid job id */
@@ -194,49 +201,64 @@ void jobScheduler()
 
 string selectJob()
 {
-    //down(&semid, semname);
     fstream queueServer;
     fstream queuePUser;
     fstream queueRUser;
-    queueServer.open(SERVER_QUEUE, ios::in);
-    queuePUser.open(POW_USER_QUEUE, ios::in);
-    queueRUser.open(USER_QUEUE, ios::in);
+
+    
+    
 
     int index = 0;
     string job;
     cout << "selectJob: Select a highest priority job from the priority queue: \n";
 
-
+    down(&semid, semname);
+    queueServer.open(SERVER_QUEUE, ios::in);
     if (getline(queueServer, job))
     {
         queueServer.close();
+        up(semid,semname);
+        down(&semid, semname);
         queueServer.open(SERVER_QUEUE, ios::in);
         //cout << "server isn't empty!" << endl;
         popLineFromFile(queueServer, SERVER_QUEUE);
+        queueServer.close();
+        up(semid, semname);
         return job;
     }
-    else if (getline(queuePUser, job))
+    queueServer.close();
+    up(semid, semname);
+
+    down(&semid, semname);
+    queuePUser.open(POW_USER_QUEUE, ios::in);
+    if (getline(queuePUser, job))
     {
         queuePUser.close();
+        up(semid, semname);
+        down(&semid, semname);
         queuePUser.open(POW_USER_QUEUE, ios::in);
         //cout << "pu isn't empty!" << endl;
         popLineFromFile(queuePUser, POW_USER_QUEUE);
+        up(semid, semname);
         return job;
     }
-    else if (getline(queueRUser, job))
+    queuePUser.close();
+    up(semid, semname);
+
+    down(&semid, semname);
+    queueRUser.open(USER_QUEUE, ios::in);
+    if (getline(queueRUser, job))
     {
         queueRUser.close();
+        up(semid, semname);
+        down(&semid, semname);
         queueRUser.open(USER_QUEUE, ios::in);
         //cout << "u isn't empty!" << endl;
         popLineFromFile(queueRUser, USER_QUEUE);
+        up(semid, semname);
         return job;
     }
-
-    queueServer.close();
-    queuePUser.close();
-    queueRUser.close();
-
-    //up(semid, semname);
+    up(semid, semname);
 
     return "0|NULL";
 }
@@ -300,31 +322,18 @@ void runTaskCode(const int& jobID, const string& queuePriority){
         int pid = getpid();
         cout << "Process " << pid << " will go to sleep and wait for the ^C signal to wake up\n";
         signal(SIGINT, wake_up);
-        while (!intr){
-        } //wait for the ^C to wake up
+        while(!intr); //wait for the ^C to wake up
         cout << "Power User Process has woken up" << endl;
+        exit(0);
     }
     else if (queuePriority == USER_QUEUE)
     {
         cout << "job id: " << jobID << endl;
         sleep(2);
         cout << "I am wake up" << endl;
+        return;
     }
 }
-/*
-void blockExecutionByPriority(const string& queuePriority){
-    if (queuePriority == POW_USER_QUEUE)
-    {
-        cout << "Waiting for signal..." << endl;
-        // TODO: ADD SIGNAL CODE
-        cout << "Signal Recieved" << endl;
-    }
-    else if (queuePriority == USER_QUEUE)
-    {
-        sleep(2);
-    }
-}
-*/
 
 void down(int *semid, char *semname)
 {
