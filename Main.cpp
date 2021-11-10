@@ -21,8 +21,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define N 10 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
-#define M 10 //M is the number of jobs. You may increase M to 50 when your program runs correctly
+#define N 50 //N is the number of the worker processes. You may increase N to 100 when your program runs correctly
+#define M 20 //M is the number of jobs. You may increase M to 50 when your program runs correctly
 #define debug 1
 using namespace std;
 
@@ -50,12 +50,13 @@ const int MAX_POW_USER_QUEUE = 5;
 const int MAX_USER_QUEUE = 5;
 
 int serverFileSize = 0;
-int pUserFileSize = 0;
 int rUserFileSize = 0;
+int pUserFileSize = 0;
 
 // For processing signals
 void wake_up(int s);
 int intr = 0;
+bool signalCleared = true;
 
 // For handling semnaphores
 int semid;
@@ -66,19 +67,13 @@ int main()
 {
     strcpy(semname, "mutex");
     int pid = 0;
-    pid_t wpid = 1;
     int status;
     signal(SIGINT, wake_up);
     setJobQueues(); /* Set up the priority job queues with chosen file and/or data structure */
     if (pid = fork() > 0)
     {                   /* jobGenerator process */
         jobGenerator(); /* generate random jobs and put them into the priority queues. The priority queues must be protected in a critical region */
-        while ((wpid = wait(&status)) > 0)
-        {
-            cout << "wait status: " << status << endl;
-        }
         cout << "Exiting Program..." << endl;
-        exit(0);
     }
     else
     {                   /* job scheduler process */
@@ -206,6 +201,7 @@ void jobScheduler()
     string jobString;
     string jobToken;
     int i = 0, n = 0, pid = 0;
+    int status = 0;
     /* schedule and run maximum N jobs */
     while (i < N)
     {   /* pick a job from the job priority queues */
@@ -228,7 +224,6 @@ void jobScheduler()
             i++;
         }
     }
-    // TODO: check control c is hit
 }
 
 
@@ -371,7 +366,7 @@ void runTaskCode(const int& jobID, const string& queuePriority){
         signal(SIGINT, wake_up);
         while(!intr); //wait for the ^C to wake up
         cout << "Power User Process has woken up" << endl;
-        bool signalCleared = true;
+
     }
     else if (queuePriority == USER_QUEUE)
     {
