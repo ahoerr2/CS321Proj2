@@ -219,7 +219,7 @@ void jobGenerator()
             up(semid, semname);
         }
 
-        usleep(140000); //100 can be adjusted to synchronize the job generation and job scheduling processes.
+        usleep(55000); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
 }
