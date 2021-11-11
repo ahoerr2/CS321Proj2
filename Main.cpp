@@ -47,7 +47,7 @@ const string SERVER_QUEUE = "queueServerFile";
 const string POW_USER_QUEUE = "queuePUserFile";
 const string USER_QUEUE = "queueRUserFile";
 const int MAX_SERVER_QUEUE = 15;
-const int MAX_POW_USER_QUEUE = 15;
+const int MAX_POW_USER_QUEUE = 10; //Pow user queue lowered due to signal bug
 const int MAX_USER_QUEUE = 15;
 
 int serverFileSize = 0;
@@ -75,6 +75,7 @@ int main()
     {                   /* jobGenerator process */
         jobGenerator(); /* generate random jobs and put them into the priority queues. The priority queues must be protected in a critical region */
         cout << "Exiting Program..." << endl;
+        exit(0);
     }
     else
     {                   /* job scheduler process */
@@ -152,6 +153,7 @@ void jobGenerator()
             {
                 queueServer.open(SERVER_QUEUE, ios::out | ios::app);
                 cout << "jobGenerator: job placed in server queue " << n << endl;
+                lines++;
                 cout << "server File Size: " << lines << endl;
                 jobQueueAppend(n, queueServer);
                 queueServer.close();
@@ -160,6 +162,7 @@ void jobGenerator()
             {
                 cout << "jobGenerator: server queue is full " << n << endl;
                 cout << "server File Size: " << lines << endl;
+                i--;
             }
             up(semid, semname);
         }
@@ -175,6 +178,7 @@ void jobGenerator()
             {
                 queuePUser.open(POW_USER_QUEUE, ios::out | ios::app);
                 cout << "jobGenerator: job placed in power user queue " << n << endl;
+                lines++;
                 cout << "pow user File Size: " << lines << endl;
                 jobQueueAppend(n, queuePUser);
                 queuePUser.close();
@@ -183,6 +187,7 @@ void jobGenerator()
             {
                 cout << "jobGenerator: pow user queue is full " << n << endl;
                 cout << "pow user File Size: " << lines << endl;
+                i--;
             }
             queuePUser.close();
             up(semid, semname);
@@ -199,6 +204,7 @@ void jobGenerator()
             {
                 queueRUser.open(USER_QUEUE, ios::out | ios::app);
                 cout << "jobGenerator: job placed in user queue " << n << endl;
+                lines++;
                 cout << "user File Size: " << lines << endl;
                 jobQueueAppend(n, queueRUser);
                 queueRUser.close();
@@ -207,12 +213,13 @@ void jobGenerator()
             {
                 cout << "jobGenerator: user queue is full " << n << endl;
                 cout << "user File Size: " << lines << endl;
+                i--;
             }
             queueRUser.close();
             up(semid, semname);
         }
 
-        usleep(10000); //100 can be adjusted to synchronize the job generation and job scheduling processes.
+        usleep(140000); //100 can be adjusted to synchronize the job generation and job scheduling processes.
         i++;
     }
 }
@@ -239,13 +246,19 @@ void jobScheduler()
 
         if (n > 0)
         { /* valid job id */
+            i++;
             if (pid = fork() == 0)
             {                  /* child worker process */
                 executeJob(n); /* execute the job */
                 exit(0);
             }
         }
-        i++;
+        else{
+            //Sleep if no processes are in the queue so that the job generator can kick in to generate more jobs
+            //usleep(400000)
+        }
+        //Sleep to synchronize both generator and scheduler
+        usleep(90000);
     }
 }
 
